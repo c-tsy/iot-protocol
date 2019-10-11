@@ -1,0 +1,20 @@
+{
+  "name": "@ctsy/iot-protocol",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "files": [
+    "README.md",
+    "dist/**/*.js",
+    "dist/**/*.ts"
+  ],
+  "repository": "https://github.com/c-tsy/iot-protocol",
+  "author": "castleiMac <castle@tansuyun.cn>",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "*"
+  },
+  "dependencies": {
+    "@ctsy/buffer": "^1.0.0",
+    "moment": "^2.24.0"
+  }
+}
