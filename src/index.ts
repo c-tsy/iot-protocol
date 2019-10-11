@@ -8,6 +8,7 @@ export var ID: number = 0;
  * 获取下一个ID
  */
 export function get_next_id(): number {
+    return 1;
     if (ID >= 511) {
         return ID = 0;
     }
@@ -50,13 +51,15 @@ export class Base {
      * CRC校验计算
      * @param buf 
      */
-    crc() {
+    crc(pos = -1) {
         if (this.buf.length == 0) { return 0; }
-        let b = 0;
-        for (let i = 1; i < this.buf.length; i++) {
-            b += this.buf[i];
+        if (pos == -1) { pos = this.buf.length - 1; }
+        this.buf[pos] = 0;
+        for (let i = 1; i < this.buf.length - 1; i++) {
+            this.buf[pos] += this.buf[i];
+            // this.buf[pos] = this.buf[pos] % 256;
         }
-        return this.buf[this.buf.length - 1] = b % 255;
+        return this.buf[pos];
     }
     /**
      * 解码
@@ -166,7 +169,9 @@ export class V0 extends Base {
         if (this.WithTime || this.Encrypted) {
             buf[3][1] |= 2;
             let b = Buffer.alloc(4)
-            b.writeInt32LE(moment(this.Time).add(-14610, 'days').toDate().getTime() / 1000, 0)
+            let t = moment(this.Time).add(-14610, 'days').toDate().getTime() / 1000;
+            console.log(t)
+            b.writeInt32LE(t, 0)
             buf.push(b)
         }
         if (this.Encrypted) {
@@ -228,10 +233,12 @@ export class V0 extends Base {
         let i = 2;
         this._CompanyID = this.buf.slice(i, i += 3).toString('hex');
         this.Control = this.buf.readUInt16LE(i) >> 6;
-        let t = ++i + 4;
+        let t = i + 4;
+        i++;
         if (this.buf[i] & 2) {
             this.WithTime = true;
-            this.Time = moment(this.buf.readUInt32LE(t)).add(14610, 'days').toDate();
+            console.log(this.buf.readUInt32LE(t))
+            this.Time = moment(this.buf.readUInt32LE(t) * 1000).add(14610, 'days').toDate();
             t += 4;
         }
         if (this.buf[i] & 4) {
@@ -242,17 +249,17 @@ export class V0 extends Base {
         }
         if (this.buf[i] & 32) {
             this.From.Type = AddressType.Phy;
-            this.From.Value = this.buf.slice(t, t += 4).reverse().toString('hex')
+            this.From.Value = Buffer.from(this.buf.slice(t, t += 4)).reverse().toString('hex')
         } else {
             this.From.Type = AddressType.Logic;
-            this.From.Value = this.buf.slice(t, t += 2).reverse().toString('hex')
+            this.From.Value = Buffer.from(this.buf.slice(t, t += 2)).reverse().toString('hex')
         }
         if (this.buf[i] & 16) {
             this.To.Type = AddressType.Phy;
-            this.To.Value = this.buf.slice(t, t += 4).reverse().toString('hex')
+            this.To.Value = Buffer.from(this.buf.slice(t, t += 4)).reverse().toString('hex')
         } else {
             this.To.Type = AddressType.Logic;
-            this.To.Value = this.buf.slice(t, t += 2).reverse().toString('hex')
+            this.To.Value = Buffer.from(this.buf.slice(t, t += 2)).reverse().toString('hex')
         }
         i++;
         //帧序号和帧内顺序
@@ -261,6 +268,7 @@ export class V0 extends Base {
             this.End = false;
         }
         this.No = this.buf[i++] & 63;
+        i = t;
         /**
          * 数据区协议
          */
