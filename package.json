@@ -10,6 +10,9 @@
   "repository": "https://github.com/c-tsy/iot-protocol",
   "author": "castleiMac <castle@tansuyun.cn>",
   "license": "MIT",
+  "scripts": {
+    "prepublish": "tsc"
+  },
   "devDependencies": {
     "@types/node": "*"
   },
