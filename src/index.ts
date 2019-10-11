@@ -8,7 +8,7 @@ export var ID: number = 0;
  * 获取下一个ID
  */
 export function get_next_id(): number {
-    return 1;
+    // return 1;
     if (ID >= 511) {
         return ID = 0;
     }
