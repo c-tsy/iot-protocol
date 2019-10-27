@@ -1,5 +1,23 @@
 import { Buffer } from 'buffer';
 import * as moment from 'moment';
+import { buffer2hex } from '@ctsy/buffer';
+
+export enum ParseMap {
+    Version = '版本号',
+    CompanyID = '厂商代码',
+    Control = '控制码',
+    From = '发送方地址',
+    To = '接收方地址',
+    Confirm = '需要确认?',
+    Encrypted = '需要加密?',
+    WithTime = '带时间?',
+    Time = '时间',
+    ID = '帧序号',
+    No = '第几帧',
+    End = '结束帧?',
+    DataType = '数据类型',
+    Data = '数据内容'
+}
 /**
  * 帧序号缓存
  */
@@ -155,8 +173,8 @@ export class V0 extends Base {
 
     DataType: number = 0;
     Data: Buffer = Buffer.alloc(0);
-
-    encode(): Buffer {
+    explain: string[] = [];
+    encode(explain: boolean = false): Buffer {
         let buf = [
             Buffer.from('68', 'hex'),
             Buffer.alloc(1, this.Version),
@@ -230,50 +248,69 @@ export class V0 extends Base {
     decode() {
         super.decode();
         //读出厂商代码
+        explain_text(this.buf, 0, 1, '起始位置', 'Start', '0x68')
+        explain_text(this.buf, 1, 1, '版本号', 'Version', this.Version);
         let i = 2;
         this._CompanyID = this.buf.slice(i, i += 3).toString('hex');
+        explain_text(this.buf, i - 3, 3, '厂商代码', 'CompanyID', this._CompanyID);
         this.Control = this.buf.readUInt16LE(i) >> 6;
+        explain_text(this.buf, i, 2, '控制码(2位,编码左移,解码右移) >> 6', 'Control', this.Control);
         let t = i + 4;
         i++;
         if (this.buf[i] & 2) {
             this.WithTime = true;
             console.log(this.buf.readUInt32LE(t))
             this.Time = moment(this.buf.readUInt32LE(t) * 1000).add(14610, 'days').toDate();
+            explain_text(this.buf, t, 4, '时间内容', 'Time', moment(this.Time).format('YYYY-MM-DD HH:mm:zz'));
             t += 4;
         }
+        explain_text(this.buf, i, 1, '是否带时间[第2位],1带0不带(带的情况下需要取后面的4字节时间)', 'WithTime', this.WithTime);
         if (this.buf[i] & 4) {
             this.Encrypted = true;
         }
+        explain_text(this.buf, i, 1, '是否加密[第3位],1加密0不加密', 'Encrypted', this.Encrypted);
         if (this.buf[i] & 8) {
             this.Confirm = true;
         }
+        explain_text(this.buf, i, 1, '是否加密[第4位],1需要确认0不需确认', 'Confirm', this.Confirm);
+        explain_text(this.buf, i, 1, '接收方地址类型[第5位],1物理0逻辑', 'To.Type', '4字节为物理地址2字节为逻辑地址');
+        explain_text(this.buf, i, 1, '接收方地址类型[第6位],1物理0逻辑', 'From.Type', '4字节为物理地址2字节为逻辑地址');
         if (this.buf[i] & 32) {
             this.From.Type = AddressType.Phy;
             this.From.Value = Buffer.from(this.buf.slice(t, t += 4)).reverse().toString('hex')
+            explain_text(this.buf, t - 4, 4, '发送方地址', 'From.Value', this.From.Value);
         } else {
             this.From.Type = AddressType.Logic;
             this.From.Value = Buffer.from(this.buf.slice(t, t += 2)).reverse().toString('hex')
+            explain_text(this.buf, t - 2, 2, '发送方地址', 'From.Value', this.From.Value);
         }
         if (this.buf[i] & 16) {
             this.To.Type = AddressType.Phy;
             this.To.Value = Buffer.from(this.buf.slice(t, t += 4)).reverse().toString('hex')
+            explain_text(this.buf, t - 4, 4, '接收方地址', 'To.Value', this.To.Value);
         } else {
             this.To.Type = AddressType.Logic;
             this.To.Value = Buffer.from(this.buf.slice(t, t += 2)).reverse().toString('hex')
+            explain_text(this.buf, t - 2, 2, '接收方地址', 'To.Value', this.To.Value);
         }
         i++;
         //帧序号和帧内顺序
         this.ID = this.buf.readUInt16LE(i++) >> 7;
+        explain_text(this.buf, i - 1, 2, '帧序号 解码>>7,编码<<7', 'ID', this.ID);
         if (this.buf[i] & 64) {
             this.End = false;
         }
+        explain_text(this.buf, i, 1, '是否结束[第7位],1未结束0结束', 'End', this.End);
         this.No = this.buf[i++] & 63;
+        explain_text(this.buf, i - 1, 1, '包内第几帧[低6位]', 'No', this.No);
         i = t;
         /**
          * 数据区协议
          */
         this.DataType = this.buf[i++];
+        explain_text(this.buf, i - 1, 1, '数据区协议类型', 'DataType', this.DataType);
         let len = this.buf.readUInt16LE(i);
+        explain_text(this.buf, i, 2, '数据区长度', 'DataLen', len);
         i += 2;
         if (this.buf.length < i + len) {
             throw new Error(ErrorType.NOT_ENOUGH);
@@ -283,6 +320,50 @@ export class V0 extends Base {
             throw new Error(ErrorType.CRC_ERROR);
         }
         this.Data = this.buf.slice(i, i + len);
+        explain_text(this.buf, i, 2, '数据区内容', 'Data', buffer2hex(this.Data));
         return this;
     }
+}
+/**
+ * 
+ */
+export enum ItemType {
+    /**
+     * 原始字符串
+     */
+    AsciiString,
+    /**
+     * Hex字符串
+     */
+    HexString,
+
+
+}
+/**
+ * 
+ */
+export class Item {
+    Type: string = ''
+}
+
+
+// /**
+//  * 
+//  * @param data 
+//  */
+// export function parse(data: V0) {
+//     let t: string[] = [];
+//     for (let x in data) {
+//         if (ParseMap[x]) {
+//             if ('string' == data[x] || 'number' == data[x]) {
+//                 t.push(`${ParseMap[x]}: ${data[x]}`)
+//             }
+//         }
+//     }
+//     return t.join('\r\n')
+// }
+
+
+export function explain_text(buf: Buffer, offset: number, len: number, name: string, code: string, value: any) {
+    return `[${offset} - ${offset + len - 1}] ${name}(${code}) : ${buffer2hex(buf.slice(offset, offset + len))} => ${value}`
 }
