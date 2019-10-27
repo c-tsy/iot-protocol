@@ -170,6 +170,10 @@ export class V0 extends Base {
      * 是否结束帧
      */
     End: boolean = true;
+    /**
+     * 有无后续帧
+     */
+    Next: boolean = false;
 
     DataType: number = 0;
     Data: Buffer = Buffer.alloc(0);
@@ -184,10 +188,13 @@ export class V0 extends Base {
         //左移6位
         buf[3].writeInt16LE(this.Control << 6, 0);
         //写入时间数据，携带数据或者加密模式都需要，协议包头包尾不加密
+        if (this.Next) {
+            buf[3][1] |= 1
+        }
         if (this.WithTime || this.Encrypted) {
             buf[3][1] |= 2;
             let b = Buffer.alloc(4)
-            let t = moment(this.Time).add(-14610, 'days').toDate().getTime() / 1000;
+            let t = moment(this.Time).add(-10957, 'days').toDate().getTime() / 1000;
             console.log(t)
             b.writeInt32LE(t, 0)
             buf.push(b)
@@ -257,10 +264,13 @@ export class V0 extends Base {
         explain_text(this.buf, i, 2, '控制码(2位,编码左移,解码右移) >> 6', 'Control', this.Control);
         let t = i + 4;
         i++;
+        if (this.buf[i] & 1) {
+            this.Next = true;
+        }
         if (this.buf[i] & 2) {
             this.WithTime = true;
             console.log(this.buf.readUInt32LE(t))
-            this.Time = moment(this.buf.readUInt32LE(t) * 1000).add(14610, 'days').toDate();
+            this.Time = moment(this.buf.readUInt32LE(t) * 1000).add(10957, 'days').toDate();
             explain_text(this.buf, t, 4, '时间内容', 'Time', moment(this.Time).format('YYYY-MM-DD HH:mm:zz'));
             t += 4;
         }
