@@ -195,7 +195,7 @@ export class V0 extends Base {
         if (this.WithTime || this.Encrypted) {
             buf[3][1] |= 2;
             let b = Buffer.alloc(4)
-            let t = moment(this.Time).add(-10957, 'days').toDate().getTime() / 1000;
+            let t = moment(this.Time).toDate().getTime() / 1000;
             // console.log(t)
             b.writeInt32LE(t, 0)
             buf.push(b)
@@ -271,8 +271,8 @@ export class V0 extends Base {
         if (this.buf[i] & 2) {
             this.WithTime = true;
             // console.log(this.buf.readUInt32LE(t));
-            this.Time = moment(this.buf.readUInt32LE(t) * 1000).add(10957, 'days').toDate();
-            this.explain.push(explain_text(this.buf, t, 4, '时间内容', 'Time', moment(this.Time).format('YYYY-MM-DD HH:mm:zz')));
+            this.Time = moment(this.buf.readUInt32LE(t) * 1000).toDate();
+            this.explain.push(explain_text(this.buf, t, 4, '时间内容', 'Time', moment(this.Time).format('YYYY-MM-DD HH:mm:ss')));
             t += 4;
         }
         this.explain.push(explain_text(this.buf, i, 1, '是否带时间[第2位],1带0不带(带的情况下需要取后面的4字节时间)', 'WithTime', this.WithTime));
